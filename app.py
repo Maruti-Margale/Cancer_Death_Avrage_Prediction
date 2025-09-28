@@ -88,89 +88,131 @@ def min_max_scale_single_value(value, min_val, max_val):
         return 0.0
     return (value - min_val) / (max_val - min_val)
 
-# --- 4. STREAMLIT UI LAYOUT ---
+# --- NEW: PREDICTOR PAGE FUNCTION ---
+def show_predictor_page(model):
+    """Displays the main input form and prediction logic."""
+    st.title("County Cancer Incidence Predictor (avganncount)")
+    st.markdown("""
+    This application uses a Linear Regression model trained on demographic and health indicators 
+    to predict the average annual count of cancer cases (`avganncount`) in a region.
+    """)
+    st.warning("""
+    **⚠️ Action Required:** Please find the actual Min/Max values for each feature from your original 
+    training dataset and update the `SCALER_PARAMS` dictionary in `app.py` for accurate results.
+    """)
+
+    # Create two columns for a better layout
+    col1, col2 = st.columns(2)
+
+    # Dictionary to hold user inputs
+    user_input_dict = {}
+
+    # Display input fields in columns
+    for i, feature in enumerate(FEATURE_COLUMNS):
+        # Split the 28 inputs roughly evenly between col1 and col2 (14 inputs per column)
+        current_col = col1 if i < len(FEATURE_COLUMNS) / 2 else col2
+        
+        params = SCALER_PARAMS.get(feature, {'min': 0.0, 'max': 100.0, 'step': 1.0})
+        
+        # Use st.slider for percentage/rate features, st.number_input for large counts
+        if 'pct' in feature or 'rate' in feature or 'percent' in feature or 'age' in feature:
+            input_value = current_col.slider(
+                f"**{feature.replace('_', ' ').title()}**",
+                min_value=float(params['min']),
+                max_value=float(params['max']),
+                value=float(params['min']), # Default to min value
+                step=float(params['step']),
+                format="%.2f"
+            )
+        else:
+            # Use st.number_input for count/income features
+            input_value = current_col.number_input(
+                f"**{feature.replace('_', ' ').title()}**",
+                min_value=float(params['min']),
+                max_value=float(params['max']),
+                value=float(params['min']), # Default to min value
+                step=float(params['step']),
+                format=f"%.{2 if params['step'] < 1 else 0}f"
+            )
+            
+        user_input_dict[feature] = input_value
+
+    # --- 5. PREDICTION LOGIC ---
+    st.markdown("---")
+    if st.button('🚀 Predict Average Annual Count', type='primary'):
+        if model:
+            # 1. Prepare data for scaling
+            raw_data = pd.DataFrame([user_input_dict])
+            
+            # 2. Scale the input data manually using the defined SCALER_PARAMS
+            scaled_data = raw_data.copy()
+            
+            for col in FEATURE_COLUMNS:
+                min_val = SCALER_PARAMS[col]['min']
+                max_val = SCALER_PARAMS[col]['max']
+                
+                # Apply MinMax scaling
+                scaled_data[col] = raw_data[col].apply(
+                    lambda x: min_max_scale_single_value(x, min_val, max_val)
+                )
+
+            # 3. Make Prediction
+            try:
+                # The model expects a single row DataFrame of 28 scaled features
+                prediction = model.predict(scaled_data)
+                
+                # Format and display result
+                st.success(f"### Predicted Average Annual Cancer Count: {int(np.round(prediction[0])):,} Cases")
+                st.info("Prediction Note: This is an estimated value. Factors like data quality and model fit may affect accuracy.")
+                
+                # Optional: Display the scaled inputs for debugging
+                with st.expander("Show Scaled Inputs"):
+                    st.dataframe(scaled_data)
+                    
+            except Exception as e:
+                st.error(f"An error occurred during prediction: {e}")
+
+# --- NEW: ABOUT PAGE FUNCTION ---
+def show_about_page():
+    """Displays information about the model and features."""
+    st.title("About the Cancer Regression Model")
+    st.markdown("""
+    This application uses a multiple linear regression model trained on the `cancer_reg.csv` dataset.
+
+    ### Model Details
+    * **Algorithm:** Scikit-learn Linear Regression.
+    * **Target Variable:** `avganncount` (Average number of cancer cases diagnosed annually).
+    * **Input Features:** 28 demographic and public health indicators (listed below).
+    * **Preprocessing:** All 28 features were scaled using **MinMaxScaler** before training. The live prediction feature uses the hardcoded min/max values to perform the same scaling on new inputs.
+    
+    ### Features Used in Prediction
+    The model relies on the following 28 features to make a prediction:
+    """)
+    st.markdown(", ".join(f"`{col}`" for col in FEATURE_COLUMNS))
+    
+    st.markdown("""
+    ---
+    ### Deployment Note
+    If you did not save the original `MinMaxScaler` object, ensure the `SCALER_PARAMS` dictionary 
+    in the application code contains the correct minimum and maximum values extracted 
+    from your full training dataset for each feature.
+    """)
+
+
+# --- 4. STREAMLIT UI LAYOUT (Main Execution) ---
 st.set_page_config(page_title="Cancer Incidence Prediction", layout="wide")
 
 # Load and apply custom CSS
 load_css("styles.css")
 
-st.title("County Cancer Incidence Predictor (avganncount)")
-st.markdown("""
-This application uses a Linear Regression model trained on demographic and health indicators 
-to predict the average annual count of cancer cases (`avganncount`) in a region.
-""")
-st.warning("""
-**⚠️ Action Required:** Please find the actual Min/Max values for each feature from your original 
-training dataset and update the `SCALER_PARAMS` dictionary in `app.py` for accurate results.
-""")
+# --- NAVIGATION BAR (Sidebar) ---
+st.sidebar.title("Navigation")
+page = st.sidebar.radio("Go to", ["Predictor", "About Model"])
+st.sidebar.markdown("---")
+st.sidebar.image("https://placehold.co/100x100/00796b/ffffff?text=ML", caption="ML Model App")
 
-# Create two columns for a better layout
-col1, col2 = st.columns(2)
-
-# Dictionary to hold user inputs
-user_input_dict = {}
-
-# Display input fields in columns
-for i, feature in enumerate(FEATURE_COLUMNS):
-    # Split the 28 inputs roughly evenly between col1 and col2 (14 inputs per column)
-    current_col = col1 if i < len(FEATURE_COLUMNS) / 2 else col2
-    
-    params = SCALER_PARAMS.get(feature, {'min': 0.0, 'max': 100.0, 'step': 1.0})
-    
-    # Use st.slider for percentage/rate features, st.number_input for large counts
-    if 'pct' in feature or 'rate' in feature or 'percent' in feature or 'age' in feature:
-        input_value = current_col.slider(
-            f"**{feature.replace('_', ' ').title()}**",
-            min_value=float(params['min']),
-            max_value=float(params['max']),
-            value=float(params['min']), # Default to min value
-            step=float(params['step']),
-            format="%.2f"
-        )
-    else:
-        # Use st.number_input for count/income features
-        input_value = current_col.number_input(
-            f"**{feature.replace('_', ' ').title()}**",
-            min_value=float(params['min']),
-            max_value=float(params['max']),
-            value=float(params['min']), # Default to min value
-            step=float(params['step']),
-            format=f"%.{2 if params['step'] < 1 else 0}f"
-        )
-        
-    user_input_dict[feature] = input_value
-
-# --- 5. PREDICTION LOGIC ---
-st.markdown("---")
-if st.button('🚀 Predict Average Annual Count', type='primary'):
-    if model:
-        # 1. Prepare data for scaling
-        raw_data = pd.DataFrame([user_input_dict])
-        
-        # 2. Scale the input data manually using the defined SCALER_PARAMS
-        scaled_data = raw_data.copy()
-        
-        for col in FEATURE_COLUMNS:
-            min_val = SCALER_PARAMS[col]['min']
-            max_val = SCALER_PARAMS[col]['max']
-            
-            # Apply MinMax scaling
-            scaled_data[col] = raw_data[col].apply(
-                lambda x: min_max_scale_single_value(x, min_val, max_val)
-            )
-
-        # 3. Make Prediction
-        try:
-            # The model expects a single row DataFrame of 28 scaled features
-            prediction = model.predict(scaled_data)
-            
-            # Format and display result
-            st.success(f"### Predicted Average Annual Cancer Count: {int(np.round(prediction[0])):,} Cases")
-            st.info("Prediction Note: This is an estimated value. Factors like data quality and model fit may affect accuracy.")
-            
-            # Optional: Display the scaled inputs for debugging
-            with st.expander("Show Scaled Inputs"):
-                st.dataframe(scaled_data)
-                
-        except Exception as e:
-            st.error(f"An error occurred during prediction: {e}")
+# --- Page Rendering Logic ---
+if page == "Predictor":
+    show_predictor_page(model)
+elif page == "About Model":
+    show_about_page()
