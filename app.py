@@ -123,7 +123,7 @@ def min_max_scale_single_value(value, min_val, max_val):
 # --- NEW: PREDICTOR PAGE FUNCTION ---
 def show_predictor_page(model):
     """Displays the main input form and prediction logic."""
-    st.title("County Cancer Incidence Predictor ")
+    st.title("County Cancer Incidence Predictor (avganncount)")
     st.markdown("""
     This application uses a Linear Regression model trained on demographic and health indicators 
     to predict the average annual count of cancer cases (`avganncount`) in a region.
@@ -219,6 +219,9 @@ def show_about_page():
     * **Target Variable:** `avganncount` (Average number of cancer cases diagnosed annually).
     * **Input Features:** 28 demographic and public health indicators (listed below).
     * **Preprocessing:** All 28 features were scaled using **MinMaxScaler** before training. The live prediction feature uses the hardcoded min/max values to perform the same scaling on new inputs.
+    
+    ### Developer
+    **Developer Name:** Maruti Margale
     
     ### Features Used in Prediction
     The model relies on the following 28 features to make a prediction:
