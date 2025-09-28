@@ -1,5 +1,12 @@
-# Cancer_Death_Avrage_Prediction
-Live Demo : https://cancerdeathavrageprediction-maruti.streamlit.app/#county-cancer-incidence-predictor-avganncount
+🚀 Cancer Death Average Prediction App
+
+🔗 Live Demo: cancerdeathavrageprediction-maruti.streamlit.app
+
+📊 Project Overview
+
+This Streamlit-based machine learning app predicts the average annual cancer death count (avganncount) based on 28 health, demographic, and environmental features provided by the user.
+
+Below is the core logic of how the app works:
 
 ```mermaid
 graph TD
@@ -10,4 +17,5 @@ graph TD
     E --> F{Load Cancer_Regression.pkl Model}
     F --> G(Model Predicts avganncount)
     G --> H[End: Display Predicted Annual Cancer Count]
+
 ```
