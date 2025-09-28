@@ -247,7 +247,7 @@ load_css("styles.css")
 st.sidebar.title("Navigation")
 page = st.sidebar.radio("Go to", ["Predictor", "About Model"])
 st.sidebar.markdown("---")
-st.sidebar.image("https://placehold.co/100x100/00796b/ffffff?text=ML", caption="ML Model App")
+st.sidebar.image("https://placehold.co/100x100/4B0082/ffffff?text=ML", caption="ML Model App") # Updated Image color
 
 # --- Page Rendering Logic ---
 if page == "Predictor":
