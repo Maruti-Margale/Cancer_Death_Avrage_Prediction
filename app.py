@@ -28,6 +28,38 @@ FEATURE_COLUMNS = [
     'pctotherrace', 'pctmarriedhouseholds', 'birthrate'
 ]
 
+# Dictionary mapping short feature names to their full, descriptive titles
+FEATURE_NAMES = {
+    'avgdeathsperyear': 'Average Deaths Per Year',
+    'target_deathrate': 'Target Death Rate (Mortality per 100k)',
+    'incidencerate': 'Cancer Incidence Rate (Cases per 100k)',
+    'medincome': 'Median Household Income',
+    'popest2015': 'Estimated Population in 2015',
+    'povertypercent': 'Poverty Percentage',
+    'studypercap': 'Study Per Capita (Clinical Trials)',
+    'medianage': 'Median Age of Population',
+    'medianagemale': 'Median Age (Male)',
+    'medianagefemale': 'Median Age (Female)',
+    'percentmarried': 'Percent Married (Population 15+)',
+    'pctnohs18_24': 'Percent No High School (Age 18-24)',
+    'pcths18_24': 'Percent High School Only (Age 18-24)',
+    'pctbachdeg18_24': 'Percent Bachelor\'s Degree+ (Age 18-24)',
+    'pcths25_over': 'Percent High School Only (Age 25+)',
+    'pctbachdeg25_over': 'Percent Bachelor\'s Degree+ (Age 25+)',
+    'pctemployed16_over': 'Percent Employed (Age 16+)',
+    'pctunemployed16_over': 'Percent Unemployed (Age 16+)',
+    'pctprivatecoverage': 'Percent Private Health Coverage',
+    'pctempprivcoverage': 'Percent Employee Private Coverage',
+    'pctpubliccoverage': 'Percent Public Health Coverage',
+    'pctpubliccoveragealone': 'Percent Public Coverage Alone',
+    'pctwhite': 'Percent White Population',
+    'pctblack': 'Percent Black Population',
+    'pctasian': 'Percent Asian Population',
+    'pctotherrace': 'Percent Other Race Population',
+    'pctmarriedhouseholds': 'Percent Married Households',
+    'birthrate': 'Crude Birth Rate (per 1,000)',
+}
+
 # !!! CRITICAL: REPLACE THESE DUMMY VALUES !!!
 # You MUST replace these placeholder values with the actual min/max values 
 # from your original training data (cancer_reg.csv) to correctly apply
@@ -112,12 +144,15 @@ def show_predictor_page(model):
         # Split the 28 inputs roughly evenly between col1 and col2 (14 inputs per column)
         current_col = col1 if i < len(FEATURE_COLUMNS) / 2 else col2
         
+        # Use the full name for the label
+        full_name = FEATURE_NAMES.get(feature, feature.replace('_', ' ').title())
+        
         params = SCALER_PARAMS.get(feature, {'min': 0.0, 'max': 100.0, 'step': 1.0})
         
         # Use st.slider for percentage/rate features, st.number_input for large counts
         if 'pct' in feature or 'rate' in feature or 'percent' in feature or 'age' in feature:
             input_value = current_col.slider(
-                f"**{feature.replace('_', ' ').title()}**",
+                f"**{full_name}**",
                 min_value=float(params['min']),
                 max_value=float(params['max']),
                 value=float(params['min']), # Default to min value
@@ -127,7 +162,7 @@ def show_predictor_page(model):
         else:
             # Use st.number_input for count/income features
             input_value = current_col.number_input(
-                f"**{feature.replace('_', ' ').title()}**",
+                f"**{full_name}**",
                 min_value=float(params['min']),
                 max_value=float(params['max']),
                 value=float(params['min']), # Default to min value
@@ -188,7 +223,10 @@ def show_about_page():
     ### Features Used in Prediction
     The model relies on the following 28 features to make a prediction:
     """)
-    st.markdown(", ".join(f"`{col}`" for col in FEATURE_COLUMNS))
+    
+    # Use the full name mapping in the About Page as well
+    feature_list = [f"* **{FEATURE_NAMES[col]}** (`{col}`)" for col in FEATURE_COLUMNS]
+    st.markdown('\n'.join(feature_list))
     
     st.markdown("""
     ---
