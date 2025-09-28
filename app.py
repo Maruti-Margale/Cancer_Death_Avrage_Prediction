@@ -1,0 +1,155 @@
+import streamlit as st
+import pickle
+import pandas as pd
+import numpy as np
+
+# --- 1. DEFINE FEATURES AND SCALING PARAMS ---
+# The 28 features used for prediction, derived from cancer_regression.py
+FEATURE_COLUMNS = [
+    'avgdeathsperyear', 'target_deathrate', 'incidencerate',
+    'medincome', 'popest2015', 'povertypercent', 'studypercap',
+    'medianage', 'medianagemale', 'medianagefemale',
+    'percentmarried', 'pctnohs18_24', 'pcths18_24',
+    'pctbachdeg18_24', 'pcths25_over', 'pctbachdeg25_over',
+    'pctemployed16_over', 'pctunemployed16_over', 'pctprivatecoverage',
+    'pctempprivcoverage', 'pctpubliccoverage',
+    'pctpubliccoveragealone', 'pctwhite', 'pctblack', 'pctasian',
+    'pctotherrace', 'pctmarriedhouseholds', 'birthrate'
+]
+
+# !!! CRITICAL: REPLACE THESE DUMMY VALUES !!!
+# You must replace these placeholder values with the actual min/max values 
+# from your original training data (cancer_reg.csv) to correctly apply
+# the MinMaxScaler transformation.
+SCALER_PARAMS = {
+    'avgdeathsperyear': {'min': 0.0, 'max': 5000.0, 'step': 100.0},
+    'target_deathrate': {'min': 100.0, 'max': 300.0, 'step': 1.0},
+    'incidencerate': {'min': 300.0, 'max': 600.0, 'step': 5.0},
+    'medincome': {'min': 20000.0, 'max': 120000.0, 'step': 1000.0},
+    'popest2015': {'min': 0, 'max': 10000000, 'step': 50000},
+    'povertypercent': {'min': 0.0, 'max': 50.0, 'step': 0.1},
+    'studypercap': {'min': 0.0, 'max': 2000.0, 'step': 10.0},
+    'medianage': {'min': 20.0, 'max': 60.0, 'step': 0.1},
+    'medianagemale': {'min': 20.0, 'max': 60.0, 'step': 0.1},
+    'medianagefemale': {'min': 20.0, 'max': 60.0, 'step': 0.1},
+    'percentmarried': {'min': 20.0, 'max': 80.0, 'step': 0.1},
+    'pctnohs18_24': {'min': 0.0, 'max': 50.0, 'step': 0.1},
+    'pcths18_24': {'min': 20.0, 'max': 80.0, 'step': 0.1},
+    'pctbachdeg18_24': {'min': 0.0, 'max': 80.0, 'step': 0.1},
+    'pcths25_over': {'min': 20.0, 'max': 80.0, 'step': 0.1},
+    'pctbachdeg25_over': {'min': 5.0, 'max': 70.0, 'step': 0.1},
+    'pctemployed16_over': {'min': 30.0, 'max': 80.0, 'step': 0.1},
+    'pctunemployed16_over': {'min': 0.0, 'max': 20.0, 'step': 0.1},
+    'pctprivatecoverage': {'min': 40.0, 'max': 90.0, 'step': 0.1},
+    'pctempprivcoverage': {'min': 40.0, 'max': 90.0, 'step': 0.1},
+    'pctpubliccoverage': {'min': 10.0, 'max': 60.0, 'step': 0.1},
+    'pctpubliccoveragealone': {'min': 5.0, 'max': 60.0, 'step': 0.1},
+    'pctwhite': {'min': 0.0, 'max': 100.0, 'step': 0.1},
+    'pctblack': {'min': 0.0, 'max': 100.0, 'step': 0.1},
+    'pctasian': {'min': 0.0, 'max': 20.0, 'step': 0.1},
+    'pctotherrace': {'min': 0.0, 'max': 10.0, 'step': 0.1},
+    'pctmarriedhouseholds': {'min': 30.0, 'max': 80.0, 'step': 0.1},
+    'birthrate': {'min': 5.0, 'max': 25.0, 'step': 0.1},
+}
+
+# --- 2. MODEL LOADING ---
+@st.cache_resource
+def load_model():
+    """Loads the pickled Linear Regression model."""
+    try:
+        with open('Cancer_Regression.pkl', 'rb') as file:
+            model = pickle.load(file)
+        return model
+    except FileNotFoundError:
+        st.error("Error: 'Cancer_Regression.pkl' not found. Please ensure the file is in the same directory.")
+        return None
+    except Exception as e:
+        st.error(f"Error loading model: {e}")
+        return None
+
+model = load_model()
+
+# --- 3. SCALING FUNCTION ---
+def min_max_scale_single_value(value, min_val, max_val):
+    """Applies the MinMax scaling formula (X - min) / (max - min)."""
+    if max_val == min_val:
+        return 0.0
+    return (value - min_val) / (max_val - min_val)
+
+# --- 4. STREAMLIT UI LAYOUT ---
+st.set_page_config(page_title="Cancer Incidence Prediction", layout="wide")
+
+st.title("County Cancer Incidence Predictor (avganncount)")
+st.markdown("""
+This application uses a Linear Regression model to predict the average annual count of cancer cases 
+(`avganncount`) based on demographic and health indicators.
+
+**⚠️ WARNING:** For accurate predictions, please ensure the default minimum and maximum values in the code for each feature
+(used for internal MinMax Scaling) match the values from your original training data.
+""")
+
+# Create two columns for a better layout
+col1, col2 = st.columns(2)
+
+# Dictionary to hold user inputs
+user_input_dict = {}
+
+# Display input fields in columns
+for i, feature in enumerate(FEATURE_COLUMNS):
+    # Split the 28 inputs roughly evenly between col1 and col2
+    current_col = col1 if i < len(FEATURE_COLUMNS) / 2 else col2
+    
+    params = SCALER_PARAMS.get(feature, {'min': 0.0, 'max': 100.0, 'step': 1.0})
+    
+    # Use st.slider for percentage/rate features, st.number_input for large counts
+    if 'pct' in feature or 'rate' in feature or 'percent' in feature:
+        input_value = current_col.slider(
+            f"**{feature.replace('_', ' ').title()}**",
+            min_value=float(params['min']),
+            max_value=float(params['max']),
+            value=(params['min'] + params['max']) / 2, # Default to mean/middle
+            step=float(params['step']),
+            format="%.2f"
+        )
+    else:
+        # Use st.number_input for count/income/age features
+        input_value = current_col.number_input(
+            f"**{feature.replace('_', ' ').title()}**",
+            min_value=float(params['min']),
+            max_value=float(params['max']),
+            value=(params['min'] + params['max']) / 2, # Default to mean/middle
+            step=float(params['step']),
+            format=f"%.{2 if params['step'] < 1 else 0}f"
+        )
+        
+    user_input_dict[feature] = input_value
+
+# --- 5. PREDICTION LOGIC ---
+if st.button('Predict Average Annual Count', type='primary'):
+    if model:
+        # 1. Prepare data for scaling
+        raw_data = pd.DataFrame([user_input_dict])
+        
+        # 2. Scale the input data manually using the defined SCALER_PARAMS
+        scaled_data = raw_data.copy()
+        
+        for col in FEATURE_COLUMNS:
+            min_val = SCALER_PARAMS[col]['min']
+            max_val = SCALER_PARAMS[col]['max']
+            
+            # Apply MinMax scaling
+            scaled_data[col] = raw_data[col].apply(
+                lambda x: min_max_scale_single_value(x, min_val, max_val)
+            )
+
+        # 3. Make Prediction
+        try:
+            prediction = model.predict(scaled_data)
+            
+            # Format and display result
+            st.success("---")
+            st.success(f"### Predicted Average Annual Cancer Count: {int(np.round(prediction[0]))} Cases")
+            st.info("This represents the estimated average number of cancer cases diagnosed annually in a region with the provided characteristics.")
+            
+        except Exception as e:
+            st.error(f"An error occurred during prediction: {e}")
