@@ -123,7 +123,7 @@ def min_max_scale_single_value(value, min_val, max_val):
 # --- NEW: PREDICTOR PAGE FUNCTION ---
 def show_predictor_page(model):
     """Displays the main input form and prediction logic."""
-    st.title("County Cancer Incidence Predictor (avganncount)")
+    st.title("County Cancer Incidence Predictor")
     st.markdown("""
     This application uses a Linear Regression model trained on demographic and health indicators 
     to predict the average annual count of cancer cases (`avganncount`) in a region.
