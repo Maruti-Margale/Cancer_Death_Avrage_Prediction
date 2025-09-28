@@ -3,6 +3,17 @@ import pickle
 import pandas as pd
 import numpy as np
 
+# --- 0. CSS Loading Function ---
+# This function reads the custom CSS file and injects it into the Streamlit app.
+def load_css(file_name):
+    """Reads the CSS file and injects it into the Streamlit app."""
+    try:
+        with open(file_name) as f:
+            st.markdown(f'<style>{f.read()}</style>', unsafe_allow_html=True)
+    except FileNotFoundError:
+        # Fallback if CSS file is missing
+        pass
+
 # --- 1. DEFINE FEATURES AND SCALING PARAMS ---
 # The 28 features used for prediction, derived from cancer_regression.py
 FEATURE_COLUMNS = [
@@ -18,9 +29,9 @@ FEATURE_COLUMNS = [
 ]
 
 # !!! CRITICAL: REPLACE THESE DUMMY VALUES !!!
-# You must replace these placeholder values with the actual min/max values 
+# You MUST replace these placeholder values with the actual min/max values 
 # from your original training data (cancer_reg.csv) to correctly apply
-# the MinMaxScaler transformation.
+# the MinMaxScaler transformation. Failure to do so will result in inaccurate predictions.
 SCALER_PARAMS = {
     'avgdeathsperyear': {'min': 0.0, 'max': 5000.0, 'step': 100.0},
     'target_deathrate': {'min': 100.0, 'max': 300.0, 'step': 1.0},
@@ -57,11 +68,12 @@ SCALER_PARAMS = {
 def load_model():
     """Loads the pickled Linear Regression model."""
     try:
+        # Load the model from the previously generated pickle file
         with open('Cancer_Regression.pkl', 'rb') as file:
             model = pickle.load(file)
         return model
     except FileNotFoundError:
-        st.error("Error: 'Cancer_Regression.pkl' not found. Please ensure the file is in the same directory.")
+        st.error("Error: 'Cancer_Regression.pkl' not found. Please ensure the model file is accessible.")
         return None
     except Exception as e:
         st.error(f"Error loading model: {e}")
@@ -79,13 +91,17 @@ def min_max_scale_single_value(value, min_val, max_val):
 # --- 4. STREAMLIT UI LAYOUT ---
 st.set_page_config(page_title="Cancer Incidence Prediction", layout="wide")
 
+# Load and apply custom CSS
+load_css("styles.css")
+
 st.title("County Cancer Incidence Predictor (avganncount)")
 st.markdown("""
-This application uses a Linear Regression model to predict the average annual count of cancer cases 
-(`avganncount`) based on demographic and health indicators.
-
-**⚠️ WARNING:** For accurate predictions, please ensure the default minimum and maximum values in the code for each feature
-(used for internal MinMax Scaling) match the values from your original training data.
+This application uses a Linear Regression model trained on demographic and health indicators 
+to predict the average annual count of cancer cases (`avganncount`) in a region.
+""")
+st.warning("""
+**⚠️ Action Required:** Please find the actual Min/Max values for each feature from your original 
+training dataset and update the `SCALER_PARAMS` dictionary in `app.py` for accurate results.
 """)
 
 # Create two columns for a better layout
@@ -96,28 +112,28 @@ user_input_dict = {}
 
 # Display input fields in columns
 for i, feature in enumerate(FEATURE_COLUMNS):
-    # Split the 28 inputs roughly evenly between col1 and col2
+    # Split the 28 inputs roughly evenly between col1 and col2 (14 inputs per column)
     current_col = col1 if i < len(FEATURE_COLUMNS) / 2 else col2
     
     params = SCALER_PARAMS.get(feature, {'min': 0.0, 'max': 100.0, 'step': 1.0})
     
     # Use st.slider for percentage/rate features, st.number_input for large counts
-    if 'pct' in feature or 'rate' in feature or 'percent' in feature:
+    if 'pct' in feature or 'rate' in feature or 'percent' in feature or 'age' in feature:
         input_value = current_col.slider(
             f"**{feature.replace('_', ' ').title()}**",
             min_value=float(params['min']),
             max_value=float(params['max']),
-            value=(params['min'] + params['max']) / 2, # Default to mean/middle
+            value=float(params['min']), # Default to min value
             step=float(params['step']),
             format="%.2f"
         )
     else:
-        # Use st.number_input for count/income/age features
+        # Use st.number_input for count/income features
         input_value = current_col.number_input(
             f"**{feature.replace('_', ' ').title()}**",
             min_value=float(params['min']),
             max_value=float(params['max']),
-            value=(params['min'] + params['max']) / 2, # Default to mean/middle
+            value=float(params['min']), # Default to min value
             step=float(params['step']),
             format=f"%.{2 if params['step'] < 1 else 0}f"
         )
@@ -125,7 +141,8 @@ for i, feature in enumerate(FEATURE_COLUMNS):
     user_input_dict[feature] = input_value
 
 # --- 5. PREDICTION LOGIC ---
-if st.button('Predict Average Annual Count', type='primary'):
+st.markdown("---")
+if st.button('🚀 Predict Average Annual Count', type='primary'):
     if model:
         # 1. Prepare data for scaling
         raw_data = pd.DataFrame([user_input_dict])
@@ -144,12 +161,16 @@ if st.button('Predict Average Annual Count', type='primary'):
 
         # 3. Make Prediction
         try:
+            # The model expects a single row DataFrame of 28 scaled features
             prediction = model.predict(scaled_data)
             
             # Format and display result
-            st.success("---")
-            st.success(f"### Predicted Average Annual Cancer Count: {int(np.round(prediction[0]))} Cases")
-            st.info("This represents the estimated average number of cancer cases diagnosed annually in a region with the provided characteristics.")
+            st.success(f"### Predicted Average Annual Cancer Count: {int(np.round(prediction[0])):,} Cases")
+            st.info("Prediction Note: This is an estimated value. Factors like data quality and model fit may affect accuracy.")
             
+            # Optional: Display the scaled inputs for debugging
+            with st.expander("Show Scaled Inputs"):
+                st.dataframe(scaled_data)
+                
         except Exception as e:
             st.error(f"An error occurred during prediction: {e}")
